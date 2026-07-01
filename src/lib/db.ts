@@ -3,6 +3,10 @@ import { supabase } from './supabase';
 
 export const MAX_TEAM_MEMBERS = 4;
 
+function directWriteBlocked(): never {
+  throw new Error('Direct Supabase writes are blocked by RLS. Use the matching server-side API route instead.');
+}
+
 // Admin functions
 export async function getAdmin(username: string) {
   const { data, error } = await supabase
@@ -40,26 +44,11 @@ export async function getTeam(id: string) {
 }
 
 export async function createTeam(team: Omit<Team, 'id'>) {
-  const { data, error } = await supabase
-    .from('teams')
-    .insert(team)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data as Team;
+  directWriteBlocked();
 }
 
 export async function updateTeam(id: string, updates: Partial<Team>) {
-  const { data, error } = await supabase
-    .from('teams')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data as Team;
+  directWriteBlocked();
 }
 
 // Event registration functions
@@ -75,8 +64,5 @@ export async function getEventRegistrations(eventKey: EventKey) {
 }
 
 export async function registerForEvent(eventKey: EventKey, userEmail: string, regNo: string) {
-  const { error } = await supabase
-    .from('event_registration')
-    .insert({ event_key: eventKey, user_email: userEmail, reg_no: regNo });
-  if (error) throw error;
+  directWriteBlocked();
 }

@@ -20,12 +20,14 @@ export async function GET(request: NextRequest) {
     // 2) Gather registered users for the event
     const { data: registrations, error: regError } = await client
       .from('event_registration')
-      .select('user_id')
+      .select('user_email')
       .eq('event_key', event);
     if (regError) {
       return NextResponse.json({ message: 'Error fetching event registrations.', supabaseError: regError }, { status: 500 });
     }
-    const registeredIds: string[] = (registrations || []).map((r: any) => r.user_id);
+    const registeredEmails = new Set(
+      (registrations || []).map((r: any) => String(r.user_email).toLowerCase())
+    );
 
     // 3) Find all team member ids for this event
     const { data: teams, error: teamsError } = await client
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
     });
 
     // 4) Build list of unassigned user ids (user exists && registered && not in team)
-    const unassignedUsers = (allUsers || []).filter((u: any) => registeredIds.includes(u.id) && !memberSet.has(u.id));
+    const unassignedUsers = (allUsers || []).filter((u: any) => registeredEmails.has(String(u.email).toLowerCase()) && !memberSet.has(u.id));
 
     return NextResponse.json({ event, unassignedUsers });
   } catch (error) {

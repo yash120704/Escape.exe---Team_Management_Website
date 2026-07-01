@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { REQUIRED_EMAIL_DOMAIN, isAllowedEmailDomain } from "@/lib/auth-domain";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -13,6 +14,18 @@ export default function AuthCallbackPage() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const email = session.user.email;
+        if (!isAllowedEmailDomain(email)) {
+          await supabase.auth.signOut();
+          const message = `Only @${REQUIRED_EMAIL_DOMAIN} accounts are allowed to sign in.`;
+          setError(message);
+          toast({
+            variant: "destructive",
+            title: "Login Error",
+            description: message,
+          });
+          return;
+        }
+
         const res = await fetch("/api/auth/participant-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -21,7 +34,7 @@ export default function AuthCallbackPage() {
         const result = await res.json();
         if (res.ok && result.user) {
           // If user already has both username and password, treat as fully onboarded
-          if (result.user.username && result.user.password) {
+          if (result.user.username && result.user.hasPassword) {
             sessionStorage.setItem("gravitas-user", JSON.stringify(result.user));
             router.replace("/");
           } else {

@@ -28,6 +28,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'You are not a member of this team.' }, { status: 403 });
     }
 
+    const addUserBackToPool = async () => {
+      const { data: userRow } = await client
+        .from('users')
+        .select('name, email')
+        .eq('id', userId)
+        .single();
+
+      await client
+        .from('random_pool')
+        .upsert({
+          user_id: userId,
+          user_name: userRow?.name || '',
+          user_email: userRow?.email || '',
+          event: team.event,
+          event_date: (team as any).event_date
+        }, { onConflict: 'user_id,event' as any });
+    };
+
     // If the user is the leader
     if (team.leader_id === userId) {
       const updatedMembers = members.filter((m: any) => m.id !== userId);
@@ -41,21 +59,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ message: 'Error disbanding team.' }, { status: 500 });
         }
         // Add user back to random pool with date context
-        const { data: userRow } = await client
-          .from('users')
-          .select('name, email')
-          .eq('id', userId)
-          .single();
-        await client
-          .from('random_pool')
-          .insert([{
-            user_id: userId,
-            user_name: userRow?.name || '',
-            user_email: userRow?.email || '',
-            event: team.event,
-            event_date: (team as any).event_date
-          }]);
-    return NextResponse.json({ message: 'You have left the team, and the team has been disbanded.' }, { status: 200 });
+        await addUserBackToPool();
+        return NextResponse.json({ message: 'You have left the team, and the team has been disbanded.' }, { status: 200 });
       } else {
         // Assign new leader (first member in the list)
         const newLeaderId = updatedMembers[0].id;
@@ -67,21 +72,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ message: 'Error updating team.' }, { status: 500 });
         }
         // Add user back to random pool with date context
-        const { data: userRow } = await client
-          .from('users')
-          .select('name, email')
-          .eq('id', userId)
-          .single();
-        await client
-          .from('random_pool')
-          .insert([{
-            user_id: userId,
-            user_name: userRow?.name || '',
-            user_email: userRow?.email || '',
-            event: team.event,
-            event_date: (team as any).event_date
-          }]);
-    return NextResponse.json({ message: 'You have left the team. Leadership has been transferred to the next member.' }, { status: 200 });
+        await addUserBackToPool();
+        return NextResponse.json({ message: 'You have left the team. Leadership has been transferred to the next member.' }, { status: 200 });
       }
     }
 
@@ -95,20 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Error updating team.' }, { status: 500 });
     }
     // Add user back to random pool with date context
-    const { data: userRow } = await client
-      .from('users')
-      .select('name, email')
-      .eq('id', userId)
-      .single();
-    await client
-      .from('random_pool')
-      .insert([{
-        user_id: userId,
-        user_name: userRow?.name || '',
-        user_email: userRow?.email || '',
-        event: team.event,
-        event_date: (team as any).event_date
-      }]);
+    await addUserBackToPool();
     return NextResponse.json({ message: 'You have successfully left the team.' }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ message: 'An internal server error occurred.' }, { status: 500 });

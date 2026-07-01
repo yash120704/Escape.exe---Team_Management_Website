@@ -3,7 +3,8 @@ export interface User {
   name: string;
   email: string;
   username?: string;
-  password?: string; // nullable, for fallback login
+  password?: string; // hashed server-side only; do not expose to clients
+  hasPassword?: boolean;
 }
 
 export interface AdminUser {

@@ -1,19 +1,25 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import type { AdminUser } from '@/lib/types';
+import { hashPassword, isBcryptHash, verifyPassword } from '@/lib/passwords';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
-    console.log('Admin login attempt:', { username });
 
     if (!username || !password) {
-      console.log('Missing credentials');
       return NextResponse.json({ message: 'Missing username or password.' }, { status: 400 });
     }
 
+    if (process.env.NODE_ENV === 'production' && !supabaseAdmin) {
+      return NextResponse.json(
+        { message: 'Admin authentication is not configured.' },
+        { status: 500 }
+      );
+    }
 
-    // Query the admin using server client to bypass RLS
     const client = supabaseAdmin || supabase;
     const { data: admin, error } = await client
       .from('admin')
@@ -21,26 +27,25 @@ export async function POST(request: NextRequest) {
       .eq('username', username)
       .single();
 
-    // Debug logging
-    console.log('ADMIN LOGIN DEBUG:', { username, password, admin, error });
-
-    if (error || !admin || admin.password !== password) {
-      return NextResponse.json({
-        message: 'Invalid credentials.',
-        debug: { username, password, admin, error }
-      }, { status: 401 });
+    const passwordIsValid = admin ? await verifyPassword(password, admin.password) : false;
+    if (error || !admin || !passwordIsValid) {
+      return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
     }
 
-    const adminSessionData: Pick<AdminUser, 'id' | 'username'> = { id: admin.id, username: admin.username };
-    
-    // Create session data
-    const sessionData = {
+    if (!isBcryptHash(admin.password)) {
+      const passwordHash = await hashPassword(password);
+      await client
+        .from('admin')
+        .update({ password: passwordHash })
+        .eq('id', admin.id);
+    }
+
+    const sessionData: Pick<AdminUser, 'id' | 'username'> & { timestamp: number } = {
       username: admin.username,
       id: admin.id,
       timestamp: Date.now()
     };
 
-    // Create the response
     const response = NextResponse.json(
       { 
         message: 'Admin login successful.',
@@ -49,7 +54,6 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Set session cookie
     response.cookies.set({
       name: 'admin-session',
       value: JSON.stringify(sessionData),
@@ -62,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     return response;
 
-  } catch (error) {
+  } catch {
     return NextResponse.json({ message: 'An internal server error occurred.' }, { status: 500 });
   }
 }

@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { User } from "@/lib/types";
 import { Loader2, LogIn, Mail, Shield } from "lucide-react";
 import { supabase } from '@/lib/supabase';
+import { REQUIRED_EMAIL_DOMAIN } from "@/lib/auth-domain";
 
 
 const formSchema = z.object({
@@ -61,7 +62,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         provider: 'google',
         options: {
           queryParams: {
-            hd: 'vit.ac.in', // restrict to VIT domain
+            hd: REQUIRED_EMAIL_DOMAIN,
           },
           redirectTo: window.location.origin + '/auth/callback',
         },
@@ -129,7 +130,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           disabled={isLoading}
         >
           {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Mail className="mr-2" />}
-          Sign in with Google (VIT Email)
+          Sign in with Google (VIT Student Email)
         </Button>
         <div className="text-center text-xs text-muted-foreground mb-2">or</div>
         <Form {...form}>
@@ -142,7 +143,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 <FormLabel>Email / Username / Reg No</FormLabel>
                   <FormControl>
                     <Input
-                    placeholder="yourid@vit.ac.in or username or 21BCE0000"
+                    placeholder="yourid@vitstudent.ac.in or username or 21BCE0000"
                       {...field}
                     />
                   </FormControl>
@@ -157,7 +158,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
+                    <Input type="password" placeholder="Password" {...field} />
                   </FormControl>
                   <FormDescription>
                     Only for users who have set a password.

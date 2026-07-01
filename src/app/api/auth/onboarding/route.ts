@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { isAllowedEmailDomain, REQUIRED_EMAIL_DOMAIN } from '@/lib/auth-domain';
+import { hashPassword, toPublicUser } from '@/lib/passwords';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,21 +14,31 @@ export async function POST(request: NextRequest) {
 
     const client = supabaseAdmin || supabase;
     const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedUsername = String(username).trim();
+
+    if (!isAllowedEmailDomain(normalizedEmail)) {
+      return NextResponse.json(
+        { message: `Only @${REQUIRED_EMAIL_DOMAIN} accounts are allowed.` },
+        { status: 403 }
+      );
+    }
 
     // Ensure username is unique (CITEXT -> case-insensitive)
     const { data: existingByUsername } = await client
       .from('users')
       .select('id')
-      .eq('username', username)
+      .eq('username', normalizedUsername)
       .maybeSingle();
     if (existingByUsername) {
       return NextResponse.json({ message: 'Username already taken. Choose another.' }, { status: 409 });
     }
 
-    // Upsert by email; set name, username, and password
+    const passwordHash = await hashPassword(password);
+
+    // Upsert by email; set name, username, and password hash
     const { data: user, error } = await client
       .from('users')
-      .upsert({ email: normalizedEmail, name, username, password }, { onConflict: 'email' })
+      .upsert({ email: normalizedEmail, name, username: normalizedUsername, password: passwordHash }, { onConflict: 'email' })
       .select()
       .single();
     if (error) {
@@ -57,7 +71,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ message: 'Profile completed. Welcome!', user }, { status: 200 });
+    return NextResponse.json({ message: 'Profile completed. Welcome!', user: toPublicUser(user) }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ message: 'An internal server error occurred.' }, { status: 500 });
   }

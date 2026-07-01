@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 export async function GET() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const adminSession = cookieStore.get('admin-session');
 
   if (!adminSession?.value) {

@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils';
 import { SupabaseAuthListener } from "@/components/supabase-auth-listener";
 
 export const metadata: Metadata = {
-  title: 'escape-exe',
-  description: 'A VIT event companion app.',
+  title: 'SCRS Gravitas Team Management',
+  description: 'Team management, onboarding, and authentication for SCRS Gravitas.',
 };
 
 export default function RootLayout({

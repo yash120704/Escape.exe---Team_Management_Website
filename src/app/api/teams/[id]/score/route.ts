@@ -3,13 +3,13 @@ import { supabase, supabaseAdmin } from '@/lib/supabase';
 import type { Team } from '@/lib/types';
 
 interface Context {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // PATCH to update a team's attributes
 export async function PATCH(request: NextRequest, context: Context) {
   try {
-    const teamId = context.params.id;
+    const { id: teamId } = await context.params;
     const { score, name } = await request.json() as Partial<Pick<Team, 'score' | 'name'>>;
 
     // First check if the team exists

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { isAllowedEmailDomain, REQUIRED_EMAIL_DOMAIN } from '@/lib/auth-domain';
+import { hashPassword, isBcryptHash, toPublicUser, verifyPassword } from '@/lib/passwords';
 
 export const runtime = 'nodejs';
 import type { User } from '@/lib/types';
@@ -16,25 +18,18 @@ export async function POST(request: NextRequest) {
       // Check if email is registered for any event (case-insensitive)
       const client = supabaseAdmin || supabase;
       const normalizedEmail = (email || '').trim().toLowerCase();
+      if (!isAllowedEmailDomain(normalizedEmail)) {
+        return NextResponse.json(
+          { message: `Only @${REQUIRED_EMAIL_DOMAIN} accounts are allowed.` },
+          { status: 403 }
+        );
+      }
+
       let { data: regData } = await client
         .from('event_registration')
         .select('*')
         .ilike('user_email', normalizedEmail);
-      if (!regData || regData.length === 0) {
-        // Fallback across VIT domains (vit.ac.in <-> vitstudent.ac.in)
-        const alt = normalizedEmail.endsWith('@vit.ac.in')
-          ? normalizedEmail.replace('@vit.ac.in', '@vitstudent.ac.in')
-          : normalizedEmail.endsWith('@vitstudent.ac.in')
-            ? normalizedEmail.replace('@vitstudent.ac.in', '@vit.ac.in')
-            : null;
-        if (alt) {
-          const res = await client
-            .from('event_registration')
-            .select('*')
-            .ilike('user_email', alt);
-          regData = res.data as any;
-        }
-      }
+
       if (!regData || regData.length === 0) {
         return NextResponse.json({ message: 'You are not registered for any event.' }, { status: 403 });
       }
@@ -102,7 +97,7 @@ export async function POST(request: NextRequest) {
             }, { onConflict: 'user_id,event' as any });
         }
       }
-      return NextResponse.json({ message: `Welcome, ${user.name}!`, user }, { status: 200 });
+      return NextResponse.json({ message: `Welcome, ${user.name}!`, user: toPublicUser(user) }, { status: 200 });
     } else {
       // Identifier-based password login (username/email/reg number)
       if (!identifier || !password) {
@@ -154,8 +149,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'User not found.' }, { status: 404 });
       }
 
-      if (!foundUser.password || foundUser.password !== password) {
+      if (!isAllowedEmailDomain(foundUser.email)) {
+        return NextResponse.json(
+          { message: `Only @${REQUIRED_EMAIL_DOMAIN} accounts are allowed.` },
+          { status: 403 }
+        );
+      }
+
+      const passwordIsValid = await verifyPassword(password, foundUser.password);
+      if (!passwordIsValid) {
         return NextResponse.json({ message: 'Invalid password.' }, { status: 401 });
+      }
+
+      if (foundUser.password && !isBcryptHash(foundUser.password)) {
+        const passwordHash = await hashPassword(password);
+        await client
+          .from('users')
+          .update({ password: passwordHash })
+          .eq('id', foundUser.id);
+        foundUser.password = passwordHash;
       }
 
       // Auto-enqueue on basic login if user is teamless
@@ -181,7 +193,7 @@ export async function POST(request: NextRequest) {
             }, { onConflict: 'user_id,event' as any });
         }
       }
-      return NextResponse.json({ message: `Welcome back, ${foundUser.name}!`, user: foundUser }, { status: 200 });
+      return NextResponse.json({ message: `Welcome back, ${foundUser.name}!`, user: toPublicUser(foundUser) }, { status: 200 });
     }
   } catch (error) {
     return NextResponse.json({ message: 'An internal server error occurred.' }, { status: 500 });

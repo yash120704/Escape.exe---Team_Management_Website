@@ -90,9 +90,13 @@ export async function POST(request: NextRequest) {
       sourceTeamAction = 'deleted';
     } else {
       // Some members remain, update source team with remaining members
+      const nextSourceLeaderId = remainingSourceMembers.some((m: any) => m.id === sourceTeam.leader_id)
+        ? sourceTeam.leader_id
+        : remainingSourceMembers[0].id;
+
       const { error: updateSourceErr } = await client
         .from('teams')
-        .update({ members: remainingSourceMembers })
+        .update({ members: remainingSourceMembers, leader_id: nextSourceLeaderId })
         .eq('id', sourceTeam.id);
       if (updateSourceErr) {
         return NextResponse.json({ message: 'Failed to update source team after partial merge.' }, { status: 500 });
