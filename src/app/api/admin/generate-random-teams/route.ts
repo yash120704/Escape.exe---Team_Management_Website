@@ -217,12 +217,13 @@ export async function POST(request: NextRequest) {
               members,
               score: 0,
               event: effectiveEvent,
-              event_date: dateKey,
+              event_date: dateKey || new Date().toISOString().split('T')[0], // Fallback date if null
             })
             .select()
             .single();
 
           if (insertError || !created) {
+            console.error("Failed to insert team:", insertError);
             failed.push({ users: slice, error: insertError });
             continue;
           }
@@ -239,6 +240,12 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+    }
+
+    if (createdTeamIds.length === 0 && assignedToExisting.length === 0 && failed.length > 0) {
+      return NextResponse.json({ 
+        message: `Failed to generate teams. Error: ${failed[0].error?.message || JSON.stringify(failed[0].error)}` 
+      }, { status: 400 });
     }
 
     return NextResponse.json({
