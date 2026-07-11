@@ -165,8 +165,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. If we have 2 or more users left, create new teams
-    if (unassignedUsers.length >= 2) {
+    // Helper to calculate optimal team sizes (max 4, min 2) to ensure no one is left behind
+    function calculateTeamSizes(totalMembers: number, maxSize: number): number[] {
+      if (totalMembers < 2) return [totalMembers];
+      const numFullTeams = Math.floor(totalMembers / maxSize);
+      const remainder = totalMembers % maxSize;
+
+      if (remainder === 1 && numFullTeams > 0) {
+        const sizes = Array(numFullTeams - 1).fill(maxSize);
+        sizes.push(maxSize - 1);
+        sizes.push(2);
+        return sizes;
+      } else if (remainder > 0) {
+        const sizes = Array(numFullTeams).fill(maxSize);
+        sizes.push(remainder);
+        return sizes;
+      } else {
+        return Array(numFullTeams).fill(maxSize);
+      }
+    }
+
+    // 5. If we have 1 or more users left, create new teams
+    if (unassignedUsers.length >= 1) {
       // Group remaining users by event_date and create teams per date
       const byDate = new Map<string, PoolUser[]>();
       for (const u of unassignedUsers) {
@@ -175,14 +195,19 @@ export async function POST(request: NextRequest) {
         byDate.set(u.event_date, arr);
       }
       for (const [dateKey, arr] of byDate.entries()) {
-        for (let i = 0; i < arr.length; i += teamSize) {
-          const slice = arr.slice(i, i + teamSize);
-          if (slice.length < 2) break;
+        const sizes = calculateTeamSizes(arr.length, teamSize);
+        let currentIndex = 0;
+
+        for (let i = 0; i < sizes.length; i++) {
+          const size = sizes[i];
+
+          const slice = arr.slice(currentIndex, currentIndex + size);
+          currentIndex += size;
 
           const members = slice.map((u: PoolUser) => ({ id: u.id, name: u.name, email: u.email }));
           const leaderIndex = Math.floor(Math.random() * members.length);
           const leaderId = members[leaderIndex].id;
-          const teamName = `Team ${Date.now()}-${i / teamSize + 1}`;
+          const teamName = `Team ${Date.now()}-${i + 1}`;
 
           const { data: created, error: insertError } = await client
             .from('teams')
