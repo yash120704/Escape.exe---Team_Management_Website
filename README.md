@@ -5,7 +5,7 @@ Team management and participant onboarding app for the SCRS Gravitas
 creation, joining, random allocation, admin team management, and Supabase-backed
 data recovery through versioned SQL migrations.
 
-Live app: [https://escape-exe.vercel.app](https://escape-exe.vercel.app)
+Live app: [https://escape-exe-team-management-website.vercel.app](https://escape-exe-team-management-website.vercel.app)
 
 ## Features
 
@@ -106,7 +106,7 @@ In Google Cloud Console, configure the OAuth client as follows.
 Authorized JavaScript origin:
 
 ```text
-https://escape-exe.vercel.app
+https://escape-exe-team-management-website.vercel.app
 ```
 
 Authorized redirect URI:
@@ -122,10 +122,10 @@ Then go to `Authentication -> URL Configuration` and set:
 
 ```text
 Site URL:
-https://escape-exe.vercel.app
+https://escape-exe-team-management-website.vercel.app
 
 Redirect URL:
-https://escape-exe.vercel.app/auth/callback
+https://escape-exe-team-management-website.vercel.app/auth/callback
 ```
 
 You do not need Supabase OAuth Server or Supabase OAuth Apps for this project.
@@ -170,7 +170,7 @@ npm run typecheck  # Run TypeScript checks
 After deployment, create the first admin account:
 
 ```bash
-curl "https://escape-exe.vercel.app/api/admin/setup-admin?token=YOUR_ADMIN_SETUP_TOKEN"
+curl "https://escape-exe-team-management-website.vercel.app/api/admin/setup-admin?token=YOUR_ADMIN_SETUP_TOKEN"
 ```
 
 The setup route stores the admin password as a bcrypt hash.
